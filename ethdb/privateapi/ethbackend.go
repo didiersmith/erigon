@@ -58,11 +58,12 @@ type EthBackendServer struct {
 	// Send Beacon Chain requests to staged sync
 	requestList *engineapi.RequestList
 	// Replies to newPayload & forkchoice requests
-	statusCh    <-chan PayloadStatus
-	builderFunc builder.BlockBuilderFunc
-	proposing   bool
-	lock        sync.Mutex // Engine API is asynchronous, we want to avoid CL to call different APIs at the same time
-	logsFilter  *LogsFilterAggregator
+	statusCh      <-chan PayloadStatus
+	builderFunc   builder.BlockBuilderFunc
+	proposing     bool
+	memoryOverlay bool
+	lock          sync.Mutex // Engine API is asynchronous, we want to avoid CL to call different APIs at the same time
+	logsFilter    *LogsFilterAggregator
 }
 
 type EthBackend interface {
@@ -85,11 +86,11 @@ type PayloadStatus struct {
 
 func NewEthBackendServer(ctx context.Context, eth EthBackend, db kv.RwDB, events *Events, blockReader services.BlockAndTxnReader,
 	config *params.ChainConfig, requestList *engineapi.RequestList, statusCh <-chan PayloadStatus,
-	builderFunc builder.BlockBuilderFunc, proposing bool,
+	builderFunc builder.BlockBuilderFunc, proposing bool, memoryOverlay bool,
 ) *EthBackendServer {
 	s := &EthBackendServer{ctx: ctx, eth: eth, events: events, db: db, blockReader: blockReader, config: config,
 		requestList: requestList, statusCh: statusCh, builders: make(map[uint64]*builder.BlockBuilder),
-		builderFunc: builderFunc, proposing: proposing, logsFilter: NewLogsFilterAggregator(events),
+		builderFunc: builderFunc, proposing: proposing, logsFilter: NewLogsFilterAggregator(events), memoryOverlay: memoryOverlay,
 	}
 
 	ch, clean := s.events.AddLogsSubscription()
@@ -475,6 +476,10 @@ func (s *EthBackendServer) EngineForkChoiceUpdatedV1(ctx context.Context, req *r
 
 	if !s.proposing {
 		return nil, fmt.Errorf("execution layer not running as a proposer. enable proposer by taking out the --proposer.disable flag on startup")
+	}
+
+	if s.memoryOverlay {
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	tx2, err := s.db.BeginRo(ctx)

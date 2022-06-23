@@ -411,7 +411,7 @@ func New(stack *node.Node, config *ethconfig.Config, logger log.Logger) (*Ethere
 	// Initialize ethbackend
 	ethBackendRPC := privateapi.NewEthBackendServer(ctx, backend, backend.chainDB, backend.notifications.Events,
 		blockReader, chainConfig, backend.sentriesClient.Hd.BeaconRequestList, backend.sentriesClient.Hd.PayloadStatusCh,
-		assembleBlockPOS, config.Miner.EnabledPOS)
+		assembleBlockPOS, config.Miner.EnabledPOS, config.MemoryOverlay)
 	miningRPC = privateapi.NewMiningServer(ctx, backend, ethashApi)
 
 	if stack.Config().PrivateApiAddr != "" {
